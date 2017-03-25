@@ -7,7 +7,7 @@ import Html exposing ( Html, Attribute
                      , table, tr, td
                      , input, button
                      )
-import Html.Attributes exposing ( style, class, value, size
+import Html.Attributes exposing ( style, class, value, size, href
                                 , type_, name, checked
                                 )
 import Html.Events exposing ( on, onClick, onInput )
@@ -420,6 +420,13 @@ view model =
                             ]
                         ]
                   ]
+            ]
+        , div []
+            [ br
+            , a [ href "https://github.com/billstclair/elm-crosswords" ]
+                [ text "github.com/billstclair/elm-crosswords" ]
+            , br, br
+            , text <| "Copyright " ++ Entities.copyright ++ " 2017 Bill St. Clair"
             ]
         ]
 
