@@ -330,25 +330,25 @@ view model =
                   [ tr []
                         [ td [ label ] [ text "Rows:" ]
                         , td []
-                            [ button [ onClick <| BumpDims (0, 1) ]
-                                  [ text "+" ]
+                            [ button [ onClick <| BumpDims (0, -1) ]
+                                  [ text "-" ]
                             , nbsp
                             , text <| toString <| Tuple.second model.dims
                             , nbsp
-                            , button [ onClick <| BumpDims (0, -1) ]
-                                [ text "-" ]
+                            , button [ onClick <| BumpDims (0, 1) ]
+                                [ text "+" ]
                             ]
                         ]
                   , tr []
                       [ td [ label ] [ text "Cols:" ]
                       , td []
-                          [ button [ onClick <| BumpDims (1, 0) ]
-                                [ text "+" ]
+                          [ button [ onClick <| BumpDims (-1, 0) ]
+                                [ text "-" ]
                           , nbsp
                           , text <| toString <| Tuple.first model.dims
                           , nbsp
-                          , button [ onClick <| BumpDims (-1, 0) ]
-                              [ text "-" ]
+                          , button [ onClick <| BumpDims (1, 0) ]
+                              [ text "+" ]
                           ]
                       ]
                   , tr []
