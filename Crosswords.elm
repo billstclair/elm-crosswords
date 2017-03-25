@@ -40,6 +40,33 @@ type alias Cell =
 type alias Board =
     List (List Cell)
 
+type alias OneFill =
+    { word : String
+    , start : (Int, Int)
+    , direction : Direction
+    , cellNum : Int
+    , cellOpacity : Float
+    }
+
+doOneFill : OneFill -> Model -> Model
+doOneFill oneFill model =
+    fill oneFill.word
+        { model
+            | word = oneFill.word
+            , direction = oneFill.direction
+            , start = oneFill.start
+            , newNum = toString oneFill.cellNum
+            , newOpacity = toString oneFill.cellOpacity
+        }
+
+initialFills : List OneFill
+initialFills =
+    [ OneFill "XOS" (0, 0) Down 1 0.2
+    , OneFill "BIG" (2, 0) Down 2 0.2
+    , OneFill "WIN" (4, 0) Down 3 0.2
+    , OneFill "BOW" (2, 0) Across 2 1.0
+    ]
+
 type alias BoardArray =
     Array (Array Cell)
 
@@ -51,32 +78,6 @@ type Direction
     = Across
     | Down
 
-initialRows : List String
-initialRows =
-    [ "X BOW"
-    , "O I I"
-    , "S G N"
-    ]
-
-initialDims : Maybe (Int, Int)
-initialDims =
-    case List.head initialRows of
-        Nothing ->
-            Nothing
-        Just row ->
-            Just (String.length row, List.length initialRows)
-
-initialBoard : Board
-initialBoard =
-    case initialDims of
-        Nothing -> []
-        Just dims ->
-            List.map (\s ->
-                          String.toList s
-                          |> List.map String.fromChar
-                          |> List.map (Cell 0 1.0)
-                     )
-                initialRows    
 
 type alias Model =
     { dims : (Int, Int)
@@ -94,20 +95,16 @@ type alias Model =
 
 defaultDims : (Int, Int)
 defaultDims =
-    (4, 4)
+    (5, 3)
 
 initialCellSize : Int
 initialCellSize =
     100
 
-initialModel : Model
-initialModel =
-    { dims = case initialDims of
-                 Nothing -> defaultDims
-                 Just dims -> dims
-    , board = case initialDims of
-                  Nothing -> makeBoard defaultDims
-                  Just _ -> initialBoard
+emptyModel : Model
+emptyModel =
+    { dims = defaultDims
+    , board = makeBoard defaultDims
     , cellSize = initialCellSize
     , newSize = toString initialCellSize
     , word = "BOW"
@@ -118,6 +115,10 @@ initialModel =
     , cellOpacity = 1.0
     , newOpacity = "1"
     }
+
+initialModel : Model
+initialModel =
+    List.foldl doOneFill emptyModel initialFills
 
 fromList : Board -> Array (Array Cell)
 fromList board =
