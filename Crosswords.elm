@@ -19,7 +19,7 @@ import Svg.Attributes as SA
              , fill, stroke, fontSize, transform
              )
 import List
-import Array
+import Array exposing ( Array )
 
 log = Debug.log
 
@@ -39,6 +39,9 @@ type alias Cell =
 
 type alias Board =
     List (List Cell)
+
+type alias BoardArray =
+    Array (Array Cell)
 
 makeBoard : (Int, Int) -> Board
 makeBoard (width, height) =
@@ -83,6 +86,10 @@ type alias Model =
     , word : String
     , start : (Int, Int)
     , direction : Direction
+    , cellNum : Int
+    , newNum : String
+    , cellOpacity : Float
+    , newOpacity : String
     }
 
 defaultDims : (Int, Int)
@@ -106,7 +113,19 @@ initialModel =
     , word = "BOW"
     , start = (0, 0)
     , direction = Across
+    , cellNum = 0
+    , newNum = "0"
+    , cellOpacity = 1.0
+    , newOpacity = "1"
     }
+
+fromList : Board -> Array (Array Cell)
+fromList board =
+    Array.fromList <| List.map Array.fromList board
+
+toList : Array (Array Cell) -> Board
+toList array =
+    List.map Array.toList <| Array.toList array
 
 init : ( Model, Cmd Msg )
 init =
@@ -123,6 +142,8 @@ type Msg
     | BumpDims (Int, Int)
     | UpdateSize
     | UpdateNewSize String
+    | UpdateNum String
+    | UpdateOpacity String
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -143,8 +164,33 @@ update msg model =
               updateSize model
           UpdateNewSize size ->
               { model | newSize = size }
+          UpdateNum string ->
+              { model | newNum = string }
+          UpdateOpacity string ->
+              { model | newOpacity = string }
     , Cmd.none
     )
+
+get : Int -> Int -> Array (Array e) -> Maybe e
+get x y a =
+    case Array.get y a of
+        Nothing -> Nothing
+        Just row ->
+            Array.get x row
+
+set : Int -> Int -> e -> Array (Array e) -> Array (Array e)
+set x y elt a =
+     case Array.get y a of
+        Nothing -> a
+        Just row ->
+            Array.set y (Array.set x elt row) a
+                                                    
+xfer : Int -> Int -> Array (Array e) -> Array (Array e) -> Array (Array e)
+xfer x y from to =
+    case get x y from of
+        Nothing -> to
+        Just e ->
+            set x y e to
 
 bumpDims : (Int, Int) -> Model -> Model
 bumpDims (dx, dy) model =
@@ -152,35 +198,24 @@ bumpDims (dx, dy) model =
         newx = min 10 <| max 2 <| x + dx
         newy = min 10 <| max 2 <| y + dy
         board = makeBoard (newx, newy)
-        olda = Array.fromList <| List.map Array.fromList model.board
-        newa = Array.fromList <| List.map Array.fromList board
-        set = (\i j a ->
-                   case Array.get j olda of
-                       Nothing -> a
-                       Just or ->
-                           case Array.get i or of
-                               Nothing -> a
-                               Just x ->
-                                   case Array.get j a of
-                                       Nothing -> a
-                                       Just r ->
-                                           Array.set j (Array.set i x r) a
-              )
-        new2 = let loop = (\i j a ->
-                               if i >= x then
-                                   if j >= x then
+        olda = fromList model.board
+        newa = fromList board
+        new2 = let loop : Int -> Int -> BoardArray -> BoardArray
+                   loop = (\i j a ->
+                               if j >= y then
+                                   if i >= x then
                                        a
                                    else
-                                       loop i (j+1) <| set i j a
+                                       loop (i+1) 0 <| xfer i j olda a
                                else
-                                   loop (i+1) j <| set i j a
+                                   loop i (j+1) <| xfer i j olda a
                           )
                in
                    loop 0 0 newa
     in
         { model
             | dims = (newx, newy)
-            , board = List.map Array.toList <| Array.toList new2
+            , board = toList new2
         }
 
 updateSize : Model -> Model
@@ -191,9 +226,26 @@ updateSize model =
         Ok size ->
             { model | cellSize = min 300 <| max 10 size }
 
+updateNum : Model -> Model
+updateNum model =
+    case String.toInt model.newNum of
+        Err _ ->
+            model
+        Ok num ->
+            { model | cellNum = min 9 <| max 0 num }
+
+updateOpacity : Model -> Model
+updateOpacity model =
+    case String.toFloat model.newOpacity of
+        Err _ ->
+            model
+        Ok opacity ->
+            { model | cellOpacity = min 1.0 <| max 0.0 opacity }
+
 fill : String -> Model -> Model
-fill word model =
-    let a = Array.fromList <| List.map Array.fromList model.board
+fill word mod =
+    let model = updateNum <| updateOpacity mod
+        a = fromList model.board
         (x, y) = model.start
         (dx, dy) = case model.direction of
                        Across -> (1, 0)
@@ -202,21 +254,17 @@ fill word model =
                     case s of
                         "" -> res
                         _ ->
-                            case Array.get py res of
-                                Nothing -> res
-                                Just row ->
-                                    loop (String.dropLeft 1 s)
-                                        (px+dx, py+dy)
-                                        <| Array.set py
-                                            (Array.set
-                                                 px
-                                                 (Cell 0 1.0 <| String.left 1 s)
-                                                 row)
-                                            res
+                            loop (String.dropLeft 1 s)
+                                (px+dx, py+dy)
+                                <| set px py
+                                    (Cell model.cellNum
+                                         model.cellOpacity
+                                         <| String.left 1 s)
+                                    res
                )
         board = loop word model.start a
     in
-        { model | board = List.map Array.toList <| Array.toList board }
+        { model | board = toList board }
 
 erase : Model -> Model
 erase model =
@@ -304,6 +352,36 @@ view model =
         , div []
             [ table []
                   [ tr []
+                      [ td [ label ] [ text "Direction:" ]
+                      , td []
+                          [  radio "Across" (model.direction == Across)
+                              <| ChangeDirection Across
+                          ,  nbsp, nbsp
+                          , radio "Down" (model.direction == Down)
+                                <| ChangeDirection Down
+                          ]
+                      ]
+                  , tr []
+                      [ td [ label ] [ text "Clue Number:" ]
+                      , td []
+                          [ input [ value <| toString model.cellNum
+                                  , size 3
+                                  , onInput UpdateNum
+                                  ]
+                                []
+                          ]
+                      ]
+                  , tr []
+                      [ td [ label ] [ text "Opacity (0 to 1):" ]
+                      , td []
+                          [ input [ value <| toString model.cellOpacity
+                                  , size 4
+                                  , onInput UpdateOpacity
+                                  ]
+                                []
+                          ]
+                      ]
+                  , tr []
                         [ td [ label ] [ text "Word:" ]
                         , td []
                             [ input [ value model.word
@@ -319,16 +397,6 @@ view model =
                                 [ text "Erase" ]
                             ]
                         ]
-                  , tr []
-                      [ td [ label ] [ text "Direction:" ]
-                      , td []
-                          [  radio "Across" (model.direction == Across)
-                              <| ChangeDirection Across
-                          ,  nbsp, nbsp
-                          , radio "Down" (model.direction == Down)
-                                <| ChangeDirection Down
-                          ]
-                      ]
                   ]
             ]
         ]
