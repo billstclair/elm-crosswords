@@ -53,9 +53,9 @@ type Direction
 
 initialRows : List String
 initialRows =
-    [ "XOS BOW"
-    , "    I I"
-    , "    G N"
+    [ "X BOW"
+    , "O I I"
+    , "S G N"
     ]
 
 initialDims : Maybe (Int, Int)
@@ -109,7 +109,7 @@ initialModel =
                   Nothing -> makeBoard defaultDims
                   Just _ -> initialBoard
     , cellSize = initialCellSize
-    , newSize = ""
+    , newSize = toString initialCellSize
     , word = "BOW"
     , start = (0, 0)
     , direction = Across
@@ -224,7 +224,12 @@ updateSize model =
         Err _ ->
             model
         Ok size ->
-            { model | cellSize = min 300 <| max 10 size }
+            let cellSize = min 300 <| max 10 size
+            in
+                { model
+                    | cellSize = cellSize
+                    , newSize = toString cellSize
+                }
 
 updateNum : Model -> Model
 updateNum model =
@@ -257,14 +262,29 @@ fill word mod =
                             loop (String.dropLeft 1 s)
                                 (px+dx, py+dy)
                                 <| set px py
-                                    (Cell model.cellNum
+                                    (Cell (calculateCellNum px py model)
                                          model.cellOpacity
                                          <| String.left 1 s)
                                     res
                )
         board = loop word model.start a
     in
-        { model | board = toList board }
+        { model
+            | board = toList board
+            , newNum = toString model.cellNum
+            , newOpacity = toString model.cellOpacity
+        }
+
+calculateCellNum : Int -> Int -> Model -> Int
+calculateCellNum x y model =
+    if (x, y) == model.start then
+        model.cellNum
+    else
+        case get x y <| fromList model.board of
+            Nothing ->
+                model.cellNum
+            Just { num } ->
+                num
 
 erase : Model -> Model
 erase model =
@@ -364,21 +384,23 @@ view model =
                   , tr []
                       [ td [ label ] [ text "Clue Number:" ]
                       , td []
-                          [ input [ value <| toString model.cellNum
-                                  , size 3
+                          [ input [ value <| model.newNum
+                                  , size 4
                                   , onInput UpdateNum
                                   ]
                                 []
+                          , text " (0 = none)"
                           ]
                       ]
                   , tr []
                       [ td [ label ] [ text "Opacity (0 to 1):" ]
                       , td []
-                          [ input [ value <| toString model.cellOpacity
+                          [ input [ value <| model.newOpacity
                                   , size 4
                                   , onInput UpdateOpacity
                                   ]
                                 []
+                          , text " (0 = invisible, 1 = black)"
                           ]
                       ]
                   , tr []
@@ -507,28 +529,43 @@ cellStyle opacity =
           , ( "stroke", "black" )
           ]
 
-textStyle : Attribute msg
-textStyle =
+textStyle : Float -> Attribute msg
+textStyle opacity =
     -- https://coderwall.com/p/a9nkrw/center-text-in-svg-rect-horz-and-vert
     style [ ( "text-anchor", "middle" )
           , ( "alignment-baseline", "central" )
           , ( "dominant-baseline", "central" )
+          , ( "opacity", toString opacity )
           ]
 
 renderCell : Cell -> Int -> Int -> Float -> (Int, Int) -> Float -> List (Svg Msg)
-renderCell cell x y size pos opacity =
-    [ Svg.text_ [ textStyle
-                , SA.x (toString <| (toFloat x) + (size / 2.0))
-                , SA.y (toString <| (toFloat y) + (size / 2.0))
-                , fontSize <| toString <| size * 3.0 / 4.0
-                ]
-          [ Svg.text <| cell.char ]
-    , rect [ cellStyle opacity
-           , onClick <| ChangeStart pos
-           , SA.x (toString x)
-           , SA.y (toString y)
-           , width (toString size)
-           , height (toString size)
-           ]
-        []
-    ]
+renderCell cell x y size pos bgOpacity =
+    let { char, num, opacity } = cell
+        numText = if num == 0 then
+                      []
+                  else
+                      [ Svg.text_ [ textStyle opacity
+                                  , SA.x (toString <| (toFloat x) + (size / 8.0))
+                                  , SA.y (toString <| (toFloat y) + (size / 8.0))
+                                  , fontSize <| toString <| size * 1.0 / 5.0
+                                  ]
+                            [ Svg.text <| toString num ]
+                      ]
+    in
+        List.append
+            numText
+            [ Svg.text_ [ textStyle opacity
+                        , SA.x (toString <| (toFloat x) + (size / 2.0))
+                        , SA.y (toString <| (toFloat y) + (size / 2.0))
+                        , fontSize <| toString <| size * 3.0 / 4.0
+                        ]
+                  [ Svg.text <| cell.char ]
+            , rect [ cellStyle bgOpacity
+                   , onClick <| ChangeStart pos
+                   , SA.x (toString x)
+                   , SA.y (toString y)
+                   , width (toString size)
+                   , height (toString size)
+                   ]
+                  []
+            ]
