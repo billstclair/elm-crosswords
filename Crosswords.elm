@@ -61,10 +61,8 @@ doOneFill oneFill model =
 
 initialFills : List OneFill
 initialFills =
-    [ OneFill "XOS" (0, 0) Down 1 0.2
-    , OneFill "BIG" (2, 0) Down 2 0.2
-    , OneFill "WIN" (4, 0) Down 3 0.2
-    , OneFill "BOW" (2, 0) Across 2 1.0
+    [ OneFill "Xoss" (0, 0) Across 0 1.0
+    , OneFill "bow" (1, 1) Across 0 1.0
     ]
 
 type alias BoardArray =
@@ -95,7 +93,7 @@ type alias Model =
 
 defaultDims : (Int, Int)
 defaultDims =
-    (5, 3)
+    (4, 2)
 
 initialCellSize : Int
 initialCellSize =
@@ -152,7 +150,7 @@ update msg model =
           UpdateWord word ->
               { model | word = word }
           Fill ->
-              fill (String.toUpper model.word) model
+              fill model.word model
           Erase ->
               erase model
           ChangeStart start ->
